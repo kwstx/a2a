@@ -194,3 +194,11 @@ class CooperativeSurplusEngine:
             ))
 
         return claims
+
+    def update_synergy_parameters(self, synergy_multiplier_delta: float, dependency_risk_delta: float):
+        """
+        Updates the global synergy scaling parameters based on observed surplus realization.
+        """
+        self.synergy_multiplier = max(0.01, self.synergy_multiplier + synergy_multiplier_delta)
+        # Risk factor can be between 0 and 1 (usually small like 0.05)
+        self.dependency_risk_factor = max(0.0, min(0.5, self.dependency_risk_factor + dependency_risk_delta))

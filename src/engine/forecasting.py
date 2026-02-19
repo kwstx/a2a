@@ -150,3 +150,33 @@ class ForecastingLayer:
             current_vectors = next_order_vectors
 
         return chain
+
+    def update_causal_rule(self, source_category: ImpactCategory, target_category: ImpactCategory, 
+                           probability_delta: float, multiplier_delta: float):
+        """
+        Updates the causal probability and multiplier for a specific transition.
+        Used by the recalibration engine to adjust forecasting weights based on real-world data.
+        """
+        if source_category not in self.causal_rules:
+            return
+
+        rules = self.causal_rules[source_category]
+        updated_rules = []
+        found = False
+
+        for target, prob, mult in rules:
+            if target == target_category:
+                # Apply deltas with clamping
+                new_prob = max(0.0, min(1.0, prob + probability_delta))
+                new_mult = max(0.1, mult + multiplier_delta) # Multiplier shouldn't be zero/negative
+                updated_rules.append((target, new_prob, new_mult))
+                found = True
+            else:
+                updated_rules.append((target, prob, mult))
+        
+        if not found and probability_delta > 0:
+            # If the transition didn't exist but we observed it (implied by positive delta), 
+            # we might want to add it. For now, we only update existing rules to stay safe.
+            pass
+
+        self.causal_rules[source_category] = updated_rules
