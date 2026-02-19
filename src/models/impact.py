@@ -107,3 +107,26 @@ class ImpactProjection:
         )
 
 
+@dataclass
+class SurplusPool:
+    """
+    A shared pool of value derived from a task cluster's collective impact.
+    """
+    cluster_id: str
+    total_surplus: float
+    confidence_interval: Tuple[float, float]
+    aggregated_vectors: Dict[str, float] # Category name to total magnitude
+    task_ids: List[str]
+    timestamp: float = field(default_factory=lambda: time.time())
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "cluster_id": self.cluster_id,
+            "total_surplus": self.total_surplus,
+            "confidence_interval": self.confidence_interval,
+            "aggregated_vectors": self.aggregated_vectors,
+            "task_ids": self.task_ids,
+            "timestamp": self.timestamp,
+            "metadata": self.metadata
+        }
