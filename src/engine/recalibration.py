@@ -84,13 +84,22 @@ class ImpactRecalibrationEngine:
             # Simple gradient step
             synergy_delta = deviation_ratio * learning_rate * 0.5 # Conservative step
             
-            # Update the engine
+            # Update the engine's global parameters
             self.surplus_engine.update_synergy_parameters(
-                synergy_multiplier_delta=synergy_delta,
-                dependency_risk_delta=0.0 # Handle risk separately below
+                synergy_multiplier_delta=synergy_delta * 0.5, # Reduced global impact
+                dependency_risk_delta=0.0 
             )
-            
-            updates["synergy_multiplier_delta"] = synergy_delta
+            updates["synergy_multiplier_delta"] = synergy_delta * 0.5
+
+            # Update specific structural pattern modifier
+            pattern_key_list = surplus_pool.metadata.get("pattern_key")
+            if pattern_key_list:
+                pattern_key = tuple(pattern_key_list)
+                # Pattern evolution: faster learning for specific structures
+                pattern_delta = deviation_ratio * learning_rate * 2.0
+                self.surplus_engine.update_pattern_modifier(pattern_key, pattern_delta)
+                updates["pattern_modifier_delta"] = pattern_delta
+                updates["pattern_key"] = str(pattern_key)
 
         # 2. Update Risk Factors (Dependency Risk)
         # If we overestimated surplus (realized < predicted), it might be due to 

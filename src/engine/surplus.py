@@ -12,7 +12,20 @@ class CooperativeSurplusEngine:
     def __init__(self, synergy_multiplier: float = 0.15, dependency_risk_factor: float = 0.05):
         self.synergy_multiplier = synergy_multiplier
         self.dependency_risk_factor = dependency_risk_factor
+        # Map of sorted role tuples to a synergy modifier (default 1.0)
+        self.pattern_modifiers: Dict[Tuple[str, ...], float] = {}
 
+
+    def _get_pattern_key(self, projections: List[ImpactProjection]) -> Tuple[str, ...]:
+        """
+        Extracts a structural pattern key from the projections.
+        Currently defined as the sorted tuple of involved agent roles.
+        """
+        roles = []
+        for p in projections:
+            role = p.metadata.get("agent_role", "unknown")
+            roles.append(role)
+        return tuple(sorted(roles))
 
     def _compute_synergy_coefficient(self, projections: List[ImpactProjection], internal_deps: int) -> Tuple[float, Dict[str, float]]:
         """
@@ -41,16 +54,23 @@ class CooperativeSurplusEngine:
         # Base multiplier from diversity and interdependence (superlinear)
         base_synergy = (diversity ** 0.4) * (1.0 + interdependence ** 1.2)
         
+        # Apply pattern-specific modifier if it exists
+        pattern_key = self._get_pattern_key(projections)
+        pattern_modifier = self.pattern_modifiers.get(pattern_key, 1.0)
+        
         # Exponential boost from structural density
         # We use a calibrated scaling factor to control growth
-        exponential_boost = math.exp(density * self.synergy_multiplier * 4.0)
+        # We multiply the global multiplier by the pattern-specific modifier
+        effective_multiplier = self.synergy_multiplier * pattern_modifier
+        exponential_boost = math.exp(density * effective_multiplier * 4.0)
         
         total_synergy = round(base_synergy * exponential_boost, 4)
         
         return total_synergy, {
             "diversity": round(diversity, 4),
             "density": round(density, 4),
-            "interdependence": round(interdependence, 4)
+            "interdependence": round(interdependence, 4),
+            "pattern_modifier": round(pattern_modifier, 4)
         }
 
     def calculate_cluster_surplus(self, cluster_id: str, projections: List[ImpactProjection]) -> SurplusPool:
@@ -95,6 +115,8 @@ class CooperativeSurplusEngine:
                 else:
                     external_dependencies += 1
 
+        pattern_key = self._get_pattern_key(projections)
+
         # Calculate Synergy Coefficient
         synergy_bonus, synergy_metrics = self._compute_synergy_coefficient(projections, internal_dependencies)
         
@@ -124,7 +146,10 @@ class CooperativeSurplusEngine:
                 "synergy_bonus": synergy_bonus,
                 "synergy_metrics": synergy_metrics,
                 "risk_discount": round(risk_discount, 4),
-                "effective_multiplier": round(scaling_factor, 4)
+                "synergy_metrics": synergy_metrics,
+                "risk_discount": round(risk_discount, 4),
+                "effective_multiplier": round(scaling_factor, 4),
+                "pattern_key": list(pattern_key) # JSON serializable
             }
         )
 
@@ -202,3 +227,12 @@ class CooperativeSurplusEngine:
         self.synergy_multiplier = max(0.01, self.synergy_multiplier + synergy_multiplier_delta)
         # Risk factor can be between 0 and 1 (usually small like 0.05)
         self.dependency_risk_factor = max(0.0, min(0.5, self.dependency_risk_factor + dependency_risk_delta))
+
+    def update_pattern_modifier(self, pattern_key: Tuple[str, ...], delta: float):
+        """
+        Updates the synergy modifier for a specific collaboration pattern.
+        """
+        current = self.pattern_modifiers.get(pattern_key, 1.0)
+        # Allow range from 0.1 (dampened) to 3.0 (highly synergistic)
+        new_val = max(0.1, min(3.0, current + delta))
+        self.pattern_modifiers[pattern_key] = new_val
