@@ -44,6 +44,7 @@ class ValuationEngine:
             metadata={
                 **projection.metadata,
                 "agent_id": agent.id,
+                "agent_role": agent.role_label,
                 "trust_score": trust_score,
                 "adjustment_weight": weight,
                 "original_mean": projection.distribution_mean

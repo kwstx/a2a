@@ -13,9 +13,50 @@ class CooperativeSurplusEngine:
         self.synergy_multiplier = synergy_multiplier
         self.dependency_risk_factor = dependency_risk_factor
 
+
+    def _compute_synergy_coefficient(self, projections: List[ImpactProjection], internal_deps: int) -> Tuple[float, Dict[str, float]]:
+        """
+        Implements non-linear synergy scaling based on cross-role diversity,
+        dependency density, and contribution interdependence.
+        """
+        num_tasks = len(projections)
+        if num_tasks <= 1:
+            return 1.0, {"diversity": 1.0, "density": 0.0, "interdependence": 0.0}
+
+        # 1. Cross-role diversity: unique roles involved
+        roles = {p.metadata.get("agent_role", "unknown") for p in projections}
+        diversity = len(roles) / num_tasks
+
+        # 2. Dependency density: internal deps vs max possible
+        max_possible_deps = num_tasks * (num_tasks - 1)
+        density = internal_deps / max_possible_deps
+
+        # 3. Contribution interdependence: deps per task
+        interdependence = internal_deps / num_tasks
+
+        # Non-linear scaling function:
+        # Increases surplus as diversity, density, and interdependence increase.
+        # Exponential growth under high structural cooperation (density).
+        
+        # Base multiplier from diversity and interdependence (superlinear)
+        base_synergy = (diversity ** 0.4) * (1.0 + interdependence ** 1.2)
+        
+        # Exponential boost from structural density
+        # We use a calibrated scaling factor to control growth
+        exponential_boost = math.exp(density * self.synergy_multiplier * 4.0)
+        
+        total_synergy = round(base_synergy * exponential_boost, 4)
+        
+        return total_synergy, {
+            "diversity": round(diversity, 4),
+            "density": round(density, 4),
+            "interdependence": round(interdependence, 4)
+        }
+
     def calculate_cluster_surplus(self, cluster_id: str, projections: List[ImpactProjection]) -> SurplusPool:
         """
         Calculates the total predicted cooperative surplus for a list of projections.
+        Applies non-linear synergy scaling.
         """
         if not projections:
             return SurplusPool(
@@ -47,7 +88,6 @@ class CooperativeSurplusEngine:
             aggregated_magnitudes[cat_name] = aggregated_magnitudes.get(cat_name, 0.0) + proj.target_vector.magnitude
             
             # Check dependencies
-            # We look for links within the cluster
             deps = proj.target_vector.causal_dependencies
             for dep in deps:
                 if dep in task_ids:
@@ -55,14 +95,8 @@ class CooperativeSurplusEngine:
                 else:
                     external_dependencies += 1
 
-        # Synergy density: how interconnected is this cluster?
-        num_tasks = len(task_ids)
-        max_possible_internal_deps = num_tasks * (num_tasks - 1) if num_tasks > 1 else 1
-        synergy_density = internal_dependencies / max_possible_internal_deps
-
-        # Apply dependency-aware normalization
-        # Synergy: Internal dependencies increase the total value, weighted by density
-        synergy_bonus = 1.0 + (internal_dependencies * self.synergy_multiplier) * (1.0 + synergy_density)
+        # Calculate Synergy Coefficient
+        synergy_bonus, synergy_metrics = self._compute_synergy_coefficient(projections, internal_dependencies)
         
         # Risk: External dependencies (uncontrolled) decrease the predicted value
         risk_discount = 1.0 / (1.0 + (external_dependencies * self.dependency_risk_factor))
@@ -87,8 +121,8 @@ class CooperativeSurplusEngine:
                 "base_surplus": round(base_surplus, 4),
                 "internal_dependencies": internal_dependencies,
                 "external_dependencies": external_dependencies,
-                "synergy_density": round(synergy_density, 4),
-                "synergy_bonus": round(synergy_bonus, 4),
+                "synergy_bonus": synergy_bonus,
+                "synergy_metrics": synergy_metrics,
                 "risk_discount": round(risk_discount, 4),
                 "effective_multiplier": round(scaling_factor, 4)
             }
