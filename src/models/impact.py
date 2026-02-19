@@ -130,3 +130,35 @@ class SurplusPool:
             "timestamp": self.timestamp,
             "metadata": self.metadata
         }
+
+
+@dataclass
+class ContributionClaim:
+    """
+    A structured claim representing an agent's marginal contribution to a surplus pool.
+    Produced by counterfactual modeling.
+    """
+    agent_id: str
+    cluster_id: str
+    # V(All) - V(All - agent)
+    marginal_impact_estimate: float
+    # Based on the difference in uncertainty bounds/intervals
+    uncertainty_margin: float
+    # Measure of how much this agent's presence influenced synergy/dependencies
+    dependency_influence_weight: float
+    # List of task IDs the agent contributed
+    task_ids: List[str]
+    timestamp: float = field(default_factory=lambda: time.time())
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "agent_id": self.agent_id,
+            "cluster_id": self.cluster_id,
+            "marginal_impact_estimate": self.marginal_impact_estimate,
+            "uncertainty_margin": self.uncertainty_margin,
+            "dependency_influence_weight": self.dependency_influence_weight,
+            "task_ids": self.task_ids,
+            "timestamp": self.timestamp,
+            "metadata": self.metadata
+        }

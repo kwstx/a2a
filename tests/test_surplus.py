@@ -147,5 +147,67 @@ class TestSurplusEngine(unittest.TestCase):
         self.assertEqual(pool.metadata["synergy_metrics"]["diversity"], 1.0)
         print(f"High synergy surplus: {pool.total_surplus}")
 
+    def test_marginal_contribution_simple(self):
+        # Two agents, each with one task. One task depends on the other.
+        # Agent 1 (Researcher): Task 1
+        v1 = ImpactVector(category=ImpactCategory.TECHNICAL, magnitude=10.0, time_horizon=30.0, uncertainty_bounds=(9, 11))
+        p1 = ImpactProjection(
+            task_id="t1", 
+            target_vector=v1, 
+            distribution_mean=100.0, 
+            distribution_std=10.0, 
+            confidence_interval=(80.4, 119.6),
+            metadata={"agent_id": "agent-1", "agent_role": "researcher"}
+        )
+        
+        # Agent 2 (Coder): Task 2, depends on Task 1
+        v2 = ImpactVector(
+            category=ImpactCategory.EFFICIENCY, 
+            magnitude=5.0, 
+            time_horizon=30.0, 
+            uncertainty_bounds=(4, 6),
+            causal_dependencies=["t1"]
+        )
+        p2 = ImpactProjection(
+            task_id="t2", 
+            target_vector=v2, 
+            distribution_mean=50.0, 
+            distribution_std=5.0, 
+            confidence_interval=(40.2, 59.8),
+            metadata={"agent_id": "agent-2", "agent_role": "coder"}
+        )
+        
+        projections = [p1, p2]
+        claims = self.engine.estimate_marginal_contributions("cluster-1", projections)
+        
+        self.assertEqual(len(claims), 2)
+        
+        # Sort claims by agent_id for stable indexing
+        claims.sort(key=lambda x: x.agent_id)
+        
+        claim1 = claims[0] # agent-1
+        claim2 = claims[1] # agent-2
+        
+        self.assertGreater(claim1.marginal_impact_estimate, 0)
+        self.assertGreater(claim2.marginal_impact_estimate, 0)
+        self.assertGreater(claim1.marginal_impact_estimate, claim2.marginal_impact_estimate)
+        self.assertGreater(claim1.dependency_influence_weight, 0)
+
+    def test_single_agent_only_marginal(self):
+        v1 = ImpactVector(category=ImpactCategory.TECHNICAL, magnitude=10.0, time_horizon=30.0, uncertainty_bounds=(9, 11))
+        p1 = ImpactProjection(
+            task_id="t1", 
+            target_vector=v1, 
+            distribution_mean=100.0, 
+            distribution_std=10.0, 
+            confidence_interval=(80.4, 119.6),
+            metadata={"agent_id": "agent-1", "agent_role": "researcher"}
+        )
+        
+        claims = self.engine.estimate_marginal_contributions("cluster-mono", [p1])
+        self.assertEqual(len(claims), 1)
+        self.assertEqual(claims[0].marginal_impact_estimate, 100.0)
+        self.assertEqual(claims[0].dependency_influence_weight, 1.0)
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,7 +1,7 @@
 import time
 import math
 from typing import List, Dict, Any, Tuple
-from src.models.impact import ImpactProjection, ImpactVector, ImpactCategory, SurplusPool
+from src.models.impact import ImpactProjection, ImpactVector, ImpactCategory, SurplusPool, ContributionClaim
 
 class CooperativeSurplusEngine:
     """
@@ -127,3 +127,70 @@ class CooperativeSurplusEngine:
                 "effective_multiplier": round(scaling_factor, 4)
             }
         )
+
+    def estimate_marginal_contributions(self, cluster_id: str, projections: List[ImpactProjection]) -> List[ContributionClaim]:
+        """
+        Computes predicted marginal contribution for each participating agent
+        using counterfactual modeling (simulating V(All) vs V(All - agent)).
+        """
+        if not projections:
+            return []
+
+        # Baseline surplus with all agents
+        baseline_pool = self.calculate_cluster_surplus(cluster_id, projections)
+        baseline_v = baseline_pool.total_surplus
+        baseline_synergy = baseline_pool.metadata["synergy_bonus"]
+        baseline_ci_width = baseline_pool.confidence_interval[1] - baseline_pool.confidence_interval[0]
+
+        # Map agents to their projections
+        agent_projections: Dict[str, List[ImpactProjection]] = {}
+        for proj in projections:
+            agent_id = proj.metadata.get("agent_id", "unknown_agent")
+            if agent_id not in agent_projections:
+                agent_projections[agent_id] = []
+            agent_projections[agent_id].append(proj)
+
+        claims = []
+        for agent_id, a_projs in agent_projections.items():
+            # Counterfactual: Surplus WITHOUT this agent's involvement
+            remaining_projections = [p for p in projections if p.metadata.get("agent_id") != agent_id]
+            
+            if not remaining_projections:
+                # If this was the only agent, their marginal contribution is the total surplus
+                marginal_impact = baseline_v
+                uncertainty_margin = baseline_ci_width
+                dependency_weight = 1.0
+            else:
+                counterfactual_pool = self.calculate_cluster_surplus(cluster_id, remaining_projections)
+                
+                # Marginal Impact = V(All) - V(All - agent)
+                marginal_impact = max(0.0, round(baseline_v - counterfactual_pool.total_surplus, 4))
+                
+                # Uncertainty Margin: How much they added to the predictive spread
+                cf_ci_width = counterfactual_pool.confidence_interval[1] - counterfactual_pool.confidence_interval[0]
+                uncertainty_margin = round(abs(baseline_ci_width - cf_ci_width), 4)
+                
+                # Dependency Influence Weight: Ratio of synergy change
+                # Measures how much this agent's presence boosted the collective multiplier
+                if counterfactual_pool.metadata["synergy_bonus"] > 0:
+                    synergy_ratio = baseline_synergy / counterfactual_pool.metadata["synergy_bonus"]
+                else:
+                    synergy_ratio = 1.0
+                
+                # Normalized weight (capped/focused on contribution to synergy)
+                dependency_weight = round(min(1.0, max(0.0, synergy_ratio - 1.0)), 4)
+
+            claims.append(ContributionClaim(
+                agent_id=agent_id,
+                cluster_id=cluster_id,
+                marginal_impact_estimate=marginal_impact,
+                uncertainty_margin=uncertainty_margin,
+                dependency_influence_weight=dependency_weight,
+                task_ids=[p.task_id for p in a_projs],
+                metadata={
+                    "counterfactual_surplus": counterfactual_pool.total_surplus if remaining_projections else 0.0,
+                    "synergy_contribution": round(baseline_synergy - (counterfactual_pool.metadata["synergy_bonus"] if remaining_projections else 1.0), 4)
+                }
+            ))
+
+        return claims
