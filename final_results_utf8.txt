@@ -1,0 +1,27 @@
+﻿--- Starting Volatility & Recalibration Drift Stress Test ---
+Iterations: 100, Black Swan Probability: 0.5
+Iteration 0: Type=SWAN, TrustA=0.71, Synergy=0.2625
+Iteration 10: Type=SWAN, TrustA=0.4076, Synergy=0.6
+Iteration 20: Type=SWAN, TrustA=0.3795, Synergy=1.275
+Iteration 30: Type=NORM, TrustA=0.4143, Synergy=1.3875
+Iteration 40: Type=NORM, TrustA=0.4069, Synergy=1.8375
+Iteration 50: Type=NORM, TrustA=0.3864, Synergy=2.0625
+Iteration 60: Type=NORM, TrustA=0.3973, Synergy=2.175
+Iteration 70: Type=NORM, TrustA=0.3982, Synergy=2.2875
+Iteration 80: Type=NORM, TrustA=0.4871, Synergy=2.2875
+Iteration 90: Type=SWAN, TrustA=0.3615, Synergy=2.5125
+
+--- Final Results Summary ---
+Agent ID        | Trust(Tech)  | Trust(Res)   | Dev     
+-------------------------------------------------------
+agent_alpha     | 0.3559       | 0.3559       | 4.3825  
+agent_beta      | 0.5773       | 0.5773       | 0.3808  
+agent_gamma     | 0.4818       | 0.4818       | 0.7203  
+
+Global Metrics:
+Synergy Multiplier: 2.7375
+Risk Factor:        0.05
+
+--- Criteria Verification ---
+[FAILED] Synergy multiplier drifted out of sane bounds.
+[PASSED] Agents maintained non-zero trust.
