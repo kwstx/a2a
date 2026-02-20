@@ -24,11 +24,12 @@ class ImpactMetricRegistry:
 def revenue_mapper(data: Dict[str, Any]) -> ImpactVector:
     return ImpactVector(
         category=ImpactCategory.REVENUE,
-        magnitude=data.get("expected_value", 0.0),
+        magnitude=data.get("expected_value", 0.0) or data.get("amount", 0.0),
         time_horizon=data.get("contract_length", 30.0),
         uncertainty_bounds=(data.get("min", 0), data.get("max", 0)),
         domain_weights={"market_cap": 0.8, "agent_liquidity": 0.2},
-        metrics={"currency": "CRED", "recurring": data.get("is_recurring", False)}
+        metrics={"currency": "CRED", "recurring": data.get("is_recurring", False)},
+        causal_dependencies=data.get("causal_dependencies", [])
     )
 
 def research_mapper(data: Dict[str, Any]) -> ImpactVector:
@@ -38,5 +39,18 @@ def research_mapper(data: Dict[str, Any]) -> ImpactVector:
         time_horizon=365.0, # Long term
         uncertainty_bounds=(0.1, 1.0),
         domain_weights={"academic_impact": 0.9, "patent_potential": 0.1},
-        metrics={"citations_estimate": data.get("est_citations", 0)}
+        metrics={"citations_estimate": data.get("est_citations", 0)},
+        causal_dependencies=data.get("causal_dependencies", [])
     )
+
+def technical_mapper(data: Dict[str, Any]) -> ImpactVector:
+    return ImpactVector(
+        category=ImpactCategory.TECHNICAL,
+        magnitude=data.get("complexity", 1.0) * data.get("impact_factor", 1.0),
+        time_horizon=data.get("time_horizon", 30.0),
+        uncertainty_bounds=(0.5, 2.0),
+        domain_weights={"robustness": 0.5, "extensibility": 0.5},
+        metrics={"loc": data.get("loc", 0)},
+        causal_dependencies=data.get("causal_dependencies", [])
+    )
+

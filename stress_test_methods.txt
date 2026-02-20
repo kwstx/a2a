@@ -1,0 +1,51 @@
+# Stress Testing Methods for the Agent Economic Engine
+
+This document outlines the methods and scenarios for stress testing the stability, robustness, and performance of the agent payment and coordination system.
+
+## 1. High-Volume Transaction Simulation (TPS Stress)
+*   **Objective:** Verify the system's ability to handle rapid task submission and processing.
+*   **Method:** 
+    *   Simulate the submission of 10,000+ tasks within a 60-second window.
+    *   Concurrently register 500+ agents with varying roles.
+    *   Measure latency of the `ForecastingLayer` and `ValuationEngine` under load.
+*   **Success Criteria:** Zero dropped tasks; average response time for `get_valuation` remains under 100ms.
+
+## 2. Dependency Complexity & Graph Stress
+*   **Objective:** Test the `CooperativeSurplusEngine` with deep and complex causal graphs.
+*   **Method:**
+    *   Create task clusters with 100+ tasks where each task depends on 5-10 others.
+    *   Inject circular dependencies (A -> B -> C -> A) to ensure the DAG traversal handles loops gracefully without infinite recursion.
+    *   Vary the `dependency_risk_factor` to see if surplus calculations remain bounded.
+*   **Success Criteria:** System rejects or handles cycles; surplus calculations terminate; memory usage scales linearly or sub-linearly with graph depth.
+
+## 3. Volatility & Recalibration Drift
+*   **Objective:** Evaluate the stability of the `ImpactRecalibrationEngine` under extreme noise.
+*   **Method:**
+    *   Run a simulation where 50% of task outcomes are "Black Swan" events (10x higher or lower than predicted).
+    *   Observe how quickly agent trust scores and forecasting weights stabilize.
+    *   Identify if the system enters a "death spiral" where low trust leads to zero valuation, preventing agents from ever recovering.
+*   **Success Criteria:** The system converges on new weights; agent trust scores reflect empirical accuracy within 5-10 iterations.
+
+## 4. Adversarial Negotiation Pressure
+*   **Objective:** Stress the `AutonomousNegotiationEngine` with conflicting and invalid claims.
+*   **Method:**
+    *   Submit clusters where the sum of `ContributionClaim` magnitudes is 10x the available `SurplusPool`.
+    *   Inject "Bad Faith" agents who submit claims with 0% uncertainty and 100% dependency weight for tasks they didn't touch.
+    *   Test negotiation convergence with 50+ participants in a single cluster.
+*   **Success Criteria:** Negotiation converges to a fair split (within equilibrium tolerance); non-contributors receive zero allocation; system does not hang on divergence.
+
+## 5. Ledger Integrity & Resource Exhaustion
+*   **Objective:** Monitor the `ContextualizedLedgerEngine` for growth issues and data consistency.
+*   **Method:**
+    *   Generate 1,000,000+ credit entries across 50,000 distinct `CreditProvenance` tags.
+    *   Perform rapid "contribute to fund" and "deploy fund" operations to check for race conditions.
+    *   Attempt to "double spend" or over-allocate from a `CooperativeFund`.
+*   **Success Criteria:** Ledger maintains exact balance (Total Credits In = Total Credits Out); no race conditions detected; retrieval of agent balance remains performant at scale.
+
+## 6. Edge Case Boundary Testing
+*   **Objective:** Verify robustness against "garbage" data.
+*   **Method:**
+    *   Submit tasks with: zero magnitude, negative time horizons, NaN/Infinity impact values, and empty strings.
+    *   Register agents with duplicate IDs or unsupported roles.
+    *   Run recalibration with zero expected impact versus positive actual outcome.
+*   **Success Criteria:** System implements "Fail-Fast" behavior with descriptive error logging; no internal state corruption; no crashes.

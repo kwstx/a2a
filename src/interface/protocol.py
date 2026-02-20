@@ -4,7 +4,7 @@ from dataclasses import asdict
 from src.models.task import Task
 from src.models.agent import Agent
 from src.models.impact import ImpactVector, ImpactProjection, ImpactCategory, ContributionClaim, SurplusPool
-from src.models.registry import ImpactMetricRegistry, revenue_mapper, research_mapper
+from src.models.registry import ImpactMetricRegistry, revenue_mapper, research_mapper, technical_mapper
 from src.models.cooperative_fund import InvestmentEvaluation
 
 from src.engine.forecasting import ForecastingLayer
@@ -26,6 +26,8 @@ class EconomyProtocol:
         self.registry = ImpactMetricRegistry()
         self.registry.register_metric("revenue", revenue_mapper)
         self.registry.register_metric("research", research_mapper)
+        self.registry.register_metric("technical", technical_mapper)
+
         
         self.forecasting = ForecastingLayer(self.registry)
         self.valuation = ValuationEngine()
@@ -121,7 +123,8 @@ class EconomyProtocol:
             "cluster_id": pool.cluster_id,
             "total_surplus": pool.total_surplus,
             "confidence_interval": pool.confidence_interval,
-            "contributors": pool.contributors
+            "task_ids": pool.task_ids,
+            "metadata": pool.metadata
         }
 
     def run_negotiation(self, cluster_id: str, claims_data: List[Dict[str, Any]]) -> Dict[str, Any]:

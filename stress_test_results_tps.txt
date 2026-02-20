@@ -1,0 +1,12 @@
+TPS Stress Test Results
+-----------------------
+Tasks: 10000
+Agents: 500
+Total Duration: 8.45s
+TPS: 1183.45
+Avg Task Latency: 6.01ms
+Avg Valuation Latency: 0.07ms
+Final Tasks: 10000
+Final Agents: 500
+Errors: 0
+Status: SUCCESS
