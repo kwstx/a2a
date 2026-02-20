@@ -10,6 +10,12 @@ class Task:
     domain: str
     metrics: Dict[str, Any] = field(default_factory=dict)
     metadata: Dict[str, Any] = field(default_factory=dict)
+    
+    def __post_init__(self):
+        if not self.id:
+            raise ValueError("Task ID cannot be empty.")
+        if not self.domain:
+            raise ValueError("Task domain cannot be empty.")
 
     def to_dict(self) -> Dict[str, Any]:
         return {

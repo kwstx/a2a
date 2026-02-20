@@ -69,7 +69,11 @@ class AutonomousNegotiationEngine:
         agent_ids = [c.agent_id for c in claims]
         
         # 1. Define Optimization Objective Component: Marginal Contribution Alignment
-        marginal_impacts = [c.marginal_impact_estimate for c in claims]
+        # Filter: Agents with no tasks receive zero impact credit regardless of their claim
+        marginal_impacts = [
+            c.marginal_impact_estimate if len(c.task_ids) > 0 else 0.0 
+            for c in claims
+        ]
         sum_marginal = sum(marginal_impacts)
         
         if sum_marginal > 0:
@@ -79,18 +83,33 @@ class AutonomousNegotiationEngine:
             marginal_targets = [total_surplus / num_agents] * num_agents
             
         # 2. Define Optimization Objective Component: Fairness Constraints
-        # Pure egalitarian distribution for fairness baseline
-        fairness_target = total_surplus / num_agents
+        # Only contributors are eligible for the fairness pool baseline
+        contributor_indices = [i for i, c in enumerate(claims) if len(c.task_ids) > 0]
+        num_contributors = len(contributor_indices)
         
+        if num_contributors > 0:
+            fairness_target = total_surplus / num_contributors
+        else:
+            fairness_target = total_surplus / num_agents # Fallback to all if somehow none have tasks
+            
         # 3. Compute Composite Optimization Objective Target
         # This is the "Equilibrium Point" the system gravitates towards
-        objective_targets = [
-            (1 - self.fairness_weight) * mt + self.fairness_weight * fairness_target
-            for mt in marginal_targets
-        ]
+        objective_targets = []
+        for i in range(num_agents):
+            if i in contributor_indices:
+                mt = marginal_targets[i]
+                target = (1 - self.fairness_weight) * mt + self.fairness_weight * fairness_target
+                objective_targets.append(target)
+            else:
+                # Strictly zero for non-contributors
+                objective_targets.append(0.0)
         
-        # Initial state: Start from a neutral uniform distribution
-        current_allocations = [total_surplus / num_agents] * num_agents
+        # Initial state: Start from a neutral uniform distribution among contributors
+        # Non-contributors start at 0
+        current_allocations = [
+            (total_surplus / num_contributors) if i in contributor_indices else 0.0
+            for i in range(num_agents)
+        ]
         
         history = []
         prev_variance = self._calculate_variance(current_allocations)

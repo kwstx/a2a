@@ -45,8 +45,11 @@ class ForecastingLayer:
         # 1. First-order output (Direct Impact)
         try:
             first_order_vector = self.registry.translate(domain, raw_data)
+        except ValueError as ve:
+            # Re-raise validation errors to implement Fail-Fast
+            raise ve
         except Exception as e:
-            # Fallback to a neutral vector if mapping fails
+            # Fallback for registration issues or unexpected mapping failures
             first_order_vector = ImpactVector(
                 category=ImpactCategory.TECHNICAL,
                 magnitude=1.0,

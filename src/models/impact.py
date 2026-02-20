@@ -30,6 +30,23 @@ class ImpactVector:
     # Extensible metadata for plugging in domain-specific metrics
     metrics: Dict[str, Any] = field(default_factory=dict)
 
+    def __post_init__(self):
+        """
+        Validates the impact vector data to ensure robustness and fail-fast behavior.
+        """
+        import math
+        if math.isnan(self.magnitude) or math.isinf(self.magnitude) or self.magnitude <= 0:
+            raise ValueError(f"Invalid magnitude: {self.magnitude}")
+            
+        if self.time_horizon < 0:
+            raise ValueError(f"Negative time horizon: {self.time_horizon}")
+            
+        if any(math.isnan(b) or math.isinf(b) for b in self.uncertainty_bounds):
+            raise ValueError(f"Invalid uncertainty bounds: {self.uncertainty_bounds}")
+            
+        if self.uncertainty_bounds[0] > self.uncertainty_bounds[1]:
+            raise ValueError(f"Uncertainty bounds must be [min, max], got {self.uncertainty_bounds}")
+
     def to_dict(self) -> Dict[str, Any]:
         return {
             "category": self.category.value,
